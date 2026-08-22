@@ -116,3 +116,29 @@ Two real paths forward, neither implemented yet — this needs your call:
 
 Nothing in Phase A below depends on resolving this — the filters/geo-table/categorization are
 useful regardless of which sourcing path you pick later.
+
+## Addendum (Phase B) — REQ's live per-company search tool, and the final sourcing model
+
+The project's actual sourcing model ended up being: a live AI agent searches the general open
+web + company websites (never the banned job-board sites directly) to find candidates, then
+`python -m leadgen ingest` runs the deterministic filter/geo/dedupe/Sheet-delivery stages. See
+`docs/ROUTINE_PROMPT.md` for the exact routine prompt. This addendum covers the one piece of
+that model not checked in the original Step 0 pass: whether REQ's live, one-company-at-a-time
+search tool (as opposed to its bulk open-data extract, covered above) can be queried by an
+agent at all.
+
+- **`registreentreprises.gouv.qc.ca/robots.txt` explicitly allows the anonymous search path**:
+  `Disallow: /` for everything, with a specific carve-out `Allow: /RQAnonymeGR/GR/` — which is
+  exactly the anonymous company-search tool. This is a meaningfully different, more permissive
+  signal than Job Bank's blanket AI ban.
+- No Terms-of-Use text banning automated/AI access to that tool was found — but this is
+  **not a confirmed green light either**: attempting to fetch the site's own homepage directly
+  returned an HTTP 403 (likely edge/bot-detection on the general site, separate from the
+  specifically-allowed search path — not necessarily evidence of a Job-Bank-style policy ban,
+  but not proof of the opposite either).
+- **Practical guidance baked into `docs/ROUTINE_PROMPT.md`**: treat this as allowed for one
+  polite, single-company lookup at a time (matching the robots.txt-permitted path and low,
+  human-like volume), and if it ever errors, 403s, or shows a CAPTCHA, don't retry or work
+  around it — just fall through to the next enrichment tier (company site) for that company.
+  This is a live per-lead lookup, not the bulk extract — so the bulk file's CC BY-NC-SA
+  non-commercial license restriction (above) doesn't apply here.

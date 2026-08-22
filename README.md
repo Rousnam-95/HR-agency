@@ -2,47 +2,70 @@
 
 A lead-gen pipeline for B2B staffing sales targeting general-labour employers in the
 Montreal area. Filters out meat/poultry/brewery/bar/restaurant companies, geo-buckets into
-"Grand Montréal" vs "Other (within 100km)", and categorizes by headcount needed. Read
+"Grand Montreal" vs "Other (within 100km)", categorizes by headcount needed, enriches with an
+owner/HR-director contact where one can be found, and delivers to a Google Sheet. Read
 `docs/STEP0_SOURCE_FEASIBILITY.md` first — it explains why this doesn't auto-scrape job boards.
 
-## Current phase: A (filtering/categorization core, manual-import sourcing)
+## How it actually works
 
-What's built:
+**Sourcing and enrichment are done live, by an AI agent using its own judgment — not by a
+fixed Python scraper.** Job Bank, Emploi Québec, and Indeed cannot be automated at all (Job
+Bank's Terms of Use ban script/bot/AI access outright, full stop); REQ's live per-company
+lookup and general web search/company websites are the allowed alternative (see
+`docs/STEP0_SOURCE_FEASIBILITY.md` and its addendum). The exact, self-contained prompt that
+drives this is `docs/ROUTINE_PROMPT.md` — it's what a "click to run" cloud routine (or Claude,
+asked directly) follows to find and enrich candidates.
+
+The Python pipeline in this repo owns everything that benefits from being deterministic and
+tested instead of re-derived by an LLM every run:
+
 - `leadgen/filters/sector_exclude.py` — NAICS-first exclusion + narrow keyword fallback +
   explicit whitelist (grocery/food-adjacent always kept). Config in `data/naics_exclude.yaml`.
-- `leadgen/filters/geo_bucket.py` — municipality → Grand Montréal / Other / dropped, backed by
+- `leadgen/filters/geo_bucket.py` — municipality → Grand Montreal / Other / dropped, backed by
   `data/qc_geo_lookup.csv` (built by `scripts/build_geo_lookup.py`).
 - `leadgen/filters/headcount.py` — vacancy count → `1-4 / 5-9 / 10-24 / 25+ / Unspecified`.
-- `leadgen/sources/manual_import.py` + `leadgen/cli.py` — the actual Phase A "source": you (or
-  Claude, one page at a time, on explicit request) collect postings by hand into a CSV, and
-  the CLI does filtering/geo-bucketing/categorization from there.
-
-What's NOT built yet (see docs/STEP0 for why):
-- Any automated pull from Job Bank or Emploi Québec (Job Bank's Terms of Use ban all automated/
-  AI access outright; Emploi Québec is an unreadable JS SPA with unconfirmed terms).
-- Indeed integration of any kind (explicitly manual-only, out of scope for this phase).
-- Contact enrichment (owner/HR-director name/phone/email) — Phase B.
-- Dedupe across runs / Google Sheet delivery — Phase C.
+- `leadgen/state/dedupe_store.py` — SQLite store so re-running never duplicates a lead; a
+  company can still legitimately resurface later as a genuinely new posting/re-engagement.
+- `leadgen/enrich/schema.py` — validates the *shape* of whatever contact info the live agent
+  found (never lets a generic fallback contact look like a verified named one).
+- `leadgen/sheet/webapp_client.py` + `Code.gs` — delivery to a Google Sheet via a self-hosted
+  Apps Script Web App (see `HOW-TO-Deploy-Sheet.md`); no Google OAuth needed on the Python side.
+- `leadgen/sources/manual_import.py` + `python -m leadgen run` — the original manual-CSV path,
+  still useful if you'd rather browse a job board yourself and paste results in than have an
+  agent search the open web for you.
 
 ## Usage
 
 ```
 pip install -r requirements.txt
+cp .env.example .env   # then follow HOW-TO-Deploy-Sheet.md and fill in SHEET_WEBAPP_URL
 
-# get a blank CSV to fill in with companies you found on Job Bank/Emploi Québec/Indeed
+# Option A: a live agent (or Claude, asked directly) follows docs/ROUTINE_PROMPT.md, writes a
+# JSON file of candidates/enrichment results, then runs:
+python -m leadgen ingest output/live_run_<date>.json
+
+# Option B: you browse a job board yourself and fill in a CSV by hand:
 python -m leadgen init-template --output data/my_postings.csv
-
-# after filling it in:
 python -m leadgen run --input data/my_postings.csv
 ```
 
-Outputs land in `output/`: `leads_<date>.csv` (kept, in-radius), `excluded_<date>.csv`
-(sector-excluded, with reason), `dropped_out_of_radius_<date>.csv` (unmatched or >100km).
+`run` writes CSVs only (`output/leads_<date>.csv`, `excluded_<date>.csv`,
+`dropped_out_of_radius_<date>.csv`) — it predates the Sheet/dedupe/enrichment work and has no
+contact fields. `ingest` is the full path: filter → geo-bucket → headcount → dedupe → Sheet,
+plus `output/ingest_new_<date>.csv` / `ingest_excluded_<date>.csv` / `ingest_dropped_<date>.csv`
+for the same run as a local audit trail. Pass `--skip-sheet` to `ingest` to test without a
+deployed Sheet.
 
-## Input CSV columns
+## Input CSV columns (`run`)
 
 `company_name, job_title, municipality, vacancy_count, naics_code, source, posting_url, notes`
 Only the first three are required; `naics_code` sharpens the sector filter when you have it.
+
+## Input JSON shape (`ingest`)
+
+See `docs/ROUTINE_PROMPT.md` §5 for the exact shape, including the contact fields
+(`contact_name`, `contact_title`, `contact_email`, `contact_phone`, `contact_source_tier`,
+`contact_confidence`).
 
 ## Tests
 
@@ -52,7 +75,9 @@ pytest
 
 `tests/test_sector_exclude.py` runs against a hand-labeled fixture
 (`tests/fixtures/sector_labels.csv`) covering clear-excludes, clear-keeps, and tricky cases
-(e.g. a food *distributor* whose name contains "viande").
+(e.g. a food *distributor* whose name contains "viande"). `tests/test_dedupe_store.py`,
+`tests/test_enrich_schema.py`, `tests/test_webapp_client.py`, and `tests/test_ingest.py` cover
+the Phase B/C additions (no real network calls — the Sheet POST is mocked).
 
 ## Geo lookup table
 

@@ -1,0 +1,11 @@
+company_name,job_title,municipality,vacancy_count,naics_code,source,posting_url,notes
+Entrepot Logistique Metro,manutentionnaire,Montreal,8,4931,jobbank.gc.ca,,
+Distribution Alimentaire Boreal,manutentionnaire general,Longueuil,3,4133,jobbank.gc.ca,,
+Abattoir Richelieu Inc,manutentionnaire,Saint-Hyacinthe,10,3116,jobbank.gc.ca,,
+Microbrasserie du Nord,operateur de production,Laval,2,3121,indeed (manual),,
+Manufacturier de Meubles ABC,manutentionnaire,Terrebonne,5,3371,jobbank.gc.ca,,
+Marche Boucherie Fine du Plateau,commis entrepot,Montreal,1,4451,indeed (manual),,
+Transport Rive-Sud Inc,manutentionnaire entrepot,Brossard,15,4841,jobbank.gc.ca,,
+Usine Textile Beauce,operateur de machine,Sherbrooke,4,3132,jobbank.gc.ca,,too far from mtl - should be dropped
+Ferme Avicole Grenville,ouvrier general,Mirabel,6,1123,jobbank.gc.ca,,poultry - should be excluded
+Entrepot Saint-Jerome,manutentionnaire,Saint-Jerome,20,4931,jobbank.gc.ca,,

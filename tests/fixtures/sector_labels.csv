@@ -1,0 +1,17 @@
+company_name,job_title,naics_code,expected_excluded,case_type
+Abattoir Richelieu Inc,manutentionnaire,3116,True,clear_exclude_naics
+Volailles Grenville,ouvrier de production,1123,True,clear_exclude_naics
+Microbrasserie du Nord,manutentionnaire,3121,True,clear_exclude_naics
+Restaurant Chez Marcel,plongeur,7225,True,clear_exclude_naics
+Bar Le Central,barman,7224,True,clear_exclude_naics
+Boucherie Laval,commis boucher,,True,clear_exclude_keyword
+Le Petit Bistro,cuisinier,,True,clear_exclude_keyword
+Distillerie des Cantons,operateur,,True,clear_exclude_keyword
+Entrepot General Logistique,manutentionnaire general,4931,False,clear_keep
+Distribution Alimentaire Boreal,manutentionnaire,4133,False,clear_keep_food_adjacent
+Epicerie Metro Ouest,commis entrepot,4451,False,clear_keep_grocery
+Riz et Grains du Quebec,operateur de production,3119,False,clear_keep_food_manufacturing
+Manufacturier de Meubles ABC,manutentionnaire,3371,False,clear_keep_unrelated
+Distributeur Alimentaire Viandes et Cie,manutentionnaire entrepot,4133,False,tricky_meat_word_in_name_but_distributor
+Marche Boucherie Fine du Plateau,commis,4451,False,tricky_boucherie_word_but_grocery_market
+Farine Cinq Etoiles Transformation,operateur,3112,False,tricky_food_manufacturing_flour

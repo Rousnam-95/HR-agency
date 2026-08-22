@@ -1,0 +1,93 @@
+municipality,sector_or_region,lat,lon,distance_km_from_mtl,in_100km_radius,cmm_member,region_bucket
+Baie-D'Urfe,Agglomeration de Montreal,45.41,-73.909,28.5,True,True,Grand Montreal
+Beaconsfield,Agglomeration de Montreal,45.432,-73.867,24.6,True,True,Grand Montreal
+Cote-Saint-Luc,Agglomeration de Montreal,45.473,-73.658,7.8,True,True,Grand Montreal
+Dollard-Des Ormeaux,Agglomeration de Montreal,45.492,-73.817,19.5,True,True,Grand Montreal
+Dorval,Agglomeration de Montreal,45.449,-73.747,15.2,True,True,Grand Montreal
+Hampstead,Agglomeration de Montreal,45.478,-73.649,6.9,True,True,Grand Montreal
+Kirkland,Agglomeration de Montreal,45.447,-73.867,24.1,True,True,Grand Montreal
+L'Ile-Dorval,Agglomeration de Montreal,45.436,-73.744,15.6,True,True,Grand Montreal
+Montreal,Agglomeration de Montreal,45.5017,-73.5673,0.0,True,True,Grand Montreal
+Montreal-Est,Agglomeration de Montreal,45.633,-73.503,15.4,True,True,Grand Montreal
+Montreal-Ouest,Agglomeration de Montreal,45.454,-73.649,8.3,True,True,Grand Montreal
+Mont-Royal,Agglomeration de Montreal,45.516,-73.642,6.0,True,True,Grand Montreal
+Pointe-Claire,Agglomeration de Montreal,45.448,-73.817,20.4,True,True,Grand Montreal
+Sainte-Anne-de-Bellevue,Agglomeration de Montreal,45.402,-73.948,31.7,True,True,Grand Montreal
+Senneville,Agglomeration de Montreal,45.427,-73.965,32.1,True,True,Grand Montreal
+Westmount,Agglomeration de Montreal,45.483,-73.598,3.2,True,True,Grand Montreal
+Boucherville,Agglomeration de Longueuil,45.606,-73.435,15.5,True,True,Grand Montreal
+Brossard,Agglomeration de Longueuil,45.456,-73.46,9.8,True,True,Grand Montreal
+Longueuil,Agglomeration de Longueuil,45.532,-73.518,5.1,True,True,Grand Montreal
+Saint-Bruno-de-Montarville,Agglomeration de Longueuil,45.541,-73.343,18.0,True,True,Grand Montreal
+Saint-Lambert,Agglomeration de Longueuil,45.503,-73.502,5.1,True,True,Grand Montreal
+Laval,Laval,45.606,-73.712,16.2,True,True,Grand Montreal
+Blainville,Couronne Nord,45.67,-73.883,30.9,True,True,Grand Montreal
+Boisbriand,Couronne Nord,45.622,-73.833,24.6,True,True,Grand Montreal
+Bois-des-Filion,Couronne Nord,45.657,-73.766,23.2,True,True,Grand Montreal
+Deux-Montagnes,Couronne Nord,45.539,-73.9,26.3,True,True,Grand Montreal
+Lorraine,Couronne Nord,45.678,-73.789,26.1,True,True,Grand Montreal
+Mirabel,Couronne Nord,45.65,-74.083,43.4,True,True,Grand Montreal
+Oka,Couronne Nord,45.472,-74.079,40.0,True,True,Grand Montreal
+Pointe-Calumet,Couronne Nord,45.541,-73.958,30.8,True,True,Grand Montreal
+Rosemere,Couronne Nord,45.638,-73.797,23.4,True,True,Grand Montreal
+Sainte-Anne-des-Plaines,Couronne Nord,45.767,-73.812,35.1,True,True,Grand Montreal
+Sainte-Marthe-sur-le-Lac,Couronne Nord,45.548,-73.929,28.6,True,True,Grand Montreal
+Sainte-Therese,Couronne Nord,45.638,-73.828,25.3,True,True,Grand Montreal
+Saint-Eustache,Couronne Nord,45.565,-73.903,27.1,True,True,Grand Montreal
+Saint-Joseph-du-Lac,Couronne Nord,45.535,-73.984,32.7,True,True,Grand Montreal
+Beauharnois,Couronne Sud,45.316,-73.875,31.7,True,True,Grand Montreal
+Beloeil,Couronne Sud,45.564,-73.203,29.2,True,True,Grand Montreal
+Calixa-Lavallee,Couronne Sud,45.646,-73.352,23.2,True,True,Grand Montreal
+Candiac,Couronne Sud,45.383,-73.517,13.8,True,True,Grand Montreal
+Carignan,Couronne Sud,45.469,-73.303,20.9,True,True,Grand Montreal
+Chambly,Couronne Sud,45.449,-73.284,22.9,True,True,Grand Montreal
+Chateauguay,Couronne Sud,45.372,-73.749,20.2,True,True,Grand Montreal
+Contrecoeur,Couronne Sud,45.855,-73.234,47.1,True,True,Grand Montreal
+Delson,Couronne Sud,45.373,-73.545,14.4,True,True,Grand Montreal
+Hudson,Couronne Sud,45.449,-74.15,45.8,True,True,Grand Montreal
+La Prairie,Couronne Sud,45.417,-73.5,10.8,True,True,Grand Montreal
+Lery,Couronne Sud,45.315,-73.815,28.4,True,True,Grand Montreal
+Les Cedres,Couronne Sud,45.294,-74.047,44.0,True,True,Grand Montreal
+L'Ile-Cadieux,Couronne Sud,45.421,-74.062,39.6,True,True,Grand Montreal
+L'Ile-Perrot,Couronne Sud,45.362,-73.943,33.2,True,True,Grand Montreal
+Mercier,Couronne Sud,45.319,-73.74,24.4,True,True,Grand Montreal
+McMasterville,Couronne Sud,45.548,-73.207,28.5,True,True,Grand Montreal
+Mont-Saint-Hilaire,Couronne Sud,45.56,-73.181,30.8,True,True,Grand Montreal
+Notre-Dame-de-l'Ile-Perrot,Couronne Sud,45.371,-73.958,33.8,True,True,Grand Montreal
+Otterburn Park,Couronne Sud,45.545,-73.213,28.0,True,True,Grand Montreal
+Pincourt,Couronne Sud,45.383,-73.983,35.0,True,True,Grand Montreal
+Pointe-des-Cascades,Couronne Sud,45.316,-73.968,37.5,True,True,Grand Montreal
+Richelieu,Couronne Sud,45.438,-73.251,25.7,True,True,Grand Montreal
+Saint-Amable,Couronne Sud,45.66,-73.302,27.1,True,True,Grand Montreal
+Saint-Basile-le-Grand,Couronne Sud,45.535,-73.288,22.1,True,True,Grand Montreal
+Saint-Constant,Couronne Sud,45.365,-73.573,15.2,True,True,Grand Montreal
+Sainte-Catherine,Couronne Sud,45.4,-73.582,11.4,True,True,Grand Montreal
+Sainte-Julie,Couronne Sud,45.582,-73.331,20.5,True,True,Grand Montreal
+Saint-Isidore,Couronne Sud,45.331,-73.626,19.5,True,True,Grand Montreal
+Saint-Jean-Baptiste,Couronne Sud,45.542,-73.099,36.8,True,True,Grand Montreal
+Saint-Lazare,Couronne Sud,45.4,-74.133,45.6,True,True,Grand Montreal
+Saint-Mathias-sur-Richelieu,Couronne Sud,45.5,-73.201,28.5,True,True,Grand Montreal
+Saint-Mathieu,Couronne Sud,45.32,-73.505,20.8,True,True,Grand Montreal
+Saint-Mathieu-de-Beloeil,Couronne Sud,45.59,-73.251,26.5,True,True,Grand Montreal
+Saint-Philippe,Couronne Sud,45.36,-73.478,17.2,True,True,Grand Montreal
+Terrasse-Vaudreuil,Couronne Sud,45.394,-73.96,32.9,True,True,Grand Montreal
+Varennes,Couronne Sud,45.686,-73.443,22.7,True,True,Grand Montreal
+Vaudreuil-Dorion,Couronne Sud,45.4,-74.033,38.0,True,True,Grand Montreal
+Vaudreuil-sur-le-Lac,Couronne Sud,45.408,-74.006,35.8,True,True,Grand Montreal
+Verchères,Couronne Sud,45.783,-73.351,35.5,True,True,Grand Montreal
+Terrebonne,Couronne Nord,45.7,-73.633,22.6,True,True,Grand Montreal
+Repentigny,Couronne Nord,45.74,-73.454,27.9,True,True,Grand Montreal
+L'Assomption,Couronne Nord,45.811,-73.428,36.1,True,True,Grand Montreal
+Saint-Jerome,Laurentides,45.78,-74.005,46.0,True,False,Other
+Saint-Hyacinthe,Monteregie,45.63,-72.958,49.5,True,False,Other
+Sorel-Tracy,Monteregie,46.043,-73.116,69.6,True,False,Other
+Salaberry-de-Valleyfield,Monteregie,45.253,-74.127,51.7,True,False,Other
+Joliette,Lanaudiere,46.021,-73.443,58.5,True,False,Other
+Saint-Jean-sur-Richelieu,Monteregie,45.307,-73.262,32.2,True,False,Other
+Granby,Monteregie,45.4,-72.733,66.1,True,False,Other
+Farnham,Monteregie,45.286,-72.978,51.9,True,False,Other
+Cowansville,Monteregie,45.199,-72.747,72.4,True,False,Other
+Rigaud,Monteregie,45.483,-74.305,57.5,True,False,Other
+Drummondville,Centre-du-Quebec,45.883,-72.483,94.3,True,False,Other
+Saint-Sauveur,Laurentides,45.899,-74.171,64.4,True,False,Other
+Sainte-Adele,Laurentides,45.955,-74.132,66.8,True,False,Other

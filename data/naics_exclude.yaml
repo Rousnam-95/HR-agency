@@ -1,0 +1,75 @@
+# Sector exclusion list. Structured-field (NAICS) match is authoritative when a source
+# provides a NAICS code (Job Bank's open dataset does; a manually-imported posting may not).
+# Keyword fallback is a second-class signal restricted to company_name + job_title fields only
+# (never full job-description text) to avoid false-excludes like a grocery distributor whose
+# description mentions "meat aisle".
+naics_exclude:
+  "3116": "Meat product manufacturing (incl. abattoirs)"
+  "1121": "Cattle ranching and farming"
+  "1122": "Hog and pig farming"
+  "1123": "Poultry and egg production"
+  "3121": "Beverage manufacturing (breweries, distilleries, wineries)"
+  "7224": "Drinking places (bars)"
+  "7225": "Restaurants and food services"
+
+# Narrow keyword fallback -- company name / job title ONLY, case-insensitive, substring match.
+# Kept intentionally short: broad terms like "meat" or "food" would false-positive on grocery
+# and general food distribution, which must stay IN scope.
+keyword_exclude_fr:
+  - "abattoir"
+  - "boucherie"
+  - "charcuterie"
+  - "volaille"
+  - "aviculture"
+  - "brasserie"
+  - "microbrasserie"
+  - "distillerie"
+  - "vignoble"
+  - "cidrerie"
+  - "bar "
+  - "brasserie-bar"
+  - "restaurant"
+  - "resto"
+  - "bistro"
+  - "rôtisserie"
+  - "casse-croûte"
+keyword_exclude_en:
+  - "abattoir"
+  - "slaughterhouse"
+  - "butcher"
+  - "poultry"
+  - "meat packing"
+  - "meat processing"
+  - "brewery"
+  - "microbrewery"
+  - "distillery"
+  - "winery"
+  - "cidery"
+  - " bar"
+  - "restaurant"
+  - "bistro"
+  - "grill house"
+  - "steakhouse"
+
+# Explicit whitelist: never exclude a posting whose company name/title contains one of these,
+# even if a keyword above also matches (e.g. "épicerie" containing nothing meat-related should
+# never be caught by an overly broad rule). Checked before the keyword lists above.
+never_exclude_fr:
+  - "épicerie"
+  - "marché"
+  - "riz"
+  - "farine"
+  - "yogourt"
+  - "yaourt"
+  - "entrepôt"
+  - "distribution alimentaire"
+  - "produits laitiers"
+never_exclude_en:
+  - "grocery"
+  - "market"
+  - "rice"
+  - "flour"
+  - "yogurt"
+  - "warehouse"
+  - "food distribution"
+  - "dairy"

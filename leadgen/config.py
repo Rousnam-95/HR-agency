@@ -24,4 +24,6 @@ def load_env(env_path: Path = PROJECT_ROOT / ".env") -> Dict[str, str]:
 
 
 def get_webapp_url() -> str:
-    return load_env().get("SHEET_WEBAPP_URL", "")
+    # OS env always wins, and must work even when no .env file exists at all
+    # (e.g. a fresh cloud-routine checkout, where .env is gitignored).
+    return os.environ.get("SHEET_WEBAPP_URL") or load_env().get("SHEET_WEBAPP_URL", "")

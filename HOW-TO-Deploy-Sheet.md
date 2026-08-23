@@ -55,6 +55,27 @@ same URL, so you don't need to update `.env` again. Re-running `setup()` is safe
 it won't duplicate the Spreadsheet (the ID is remembered via `PropertiesService`) or clear
 existing tabs it finds already there.
 
+## Updating an already-deployed Sheet to add outreach/follow-up tracking
+
+If your Sheet was set up before the outreach-tracking columns (`Status`, `Last Contact Date`,
+`Last Contact Method`, `Next Follow-Up Date`, `Attempts`, `Follow-Up Notes`) and the
+`Follow-Ups Due` tab existed:
+
+1. In the Apps Script editor, select all of `Code.gs`'s contents and replace with the updated
+   version, same as a normal edit.
+2. Run **`setup`** once from the toolbar (it now calls the migration automatically) — or run
+   **`migrateAddOutreachColumns`** directly if you'd rather not touch triggers/other setup.
+   Either is safe to run more than once: it adds the missing columns/tab, backfills
+   `Status="New"` and `Attempts=0` **only on rows where those cells are still blank**, and
+   never touches a row you've already started working (an existing `Status`, follow-up date,
+   or note is left exactly as you left it).
+3. **Deploy → Manage deployments → edit (pencil) → New version → Deploy.** Same URL — nothing
+   to change in `.env`.
+
+You should see the new columns on `Leads`, a `Follow-Ups Due` tab, and (once you've filled in a
+few follow-up dates) overdue rows highlighted in red. See `OUTREACH_PLAYBOOK.md` for the
+call/email cadence these fields are meant to track.
+
 ## If something looks wrong
 
 - **Rows aren't appearing**: check `SHEET_WEBAPP_URL` is the `/exec` URL (not `/dev`), and that

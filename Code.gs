@@ -6,11 +6,14 @@
  *   The Sheet-delivery half of the leadgen-hr-staffing pipeline (see the repo README).
  *   The Python CLI (`python -m leadgen ingest ...`) filters/geo-buckets/dedupes leads
  *   locally, then POSTs new ones here as JSON. This script owns the actual Google Sheet:
- *     1) A "Leads" tab that's the persistent database (never rebuilt/duplicated on rerun)
+ *     1) A "Leads" tab that's the persistent database (never rebuilt/duplicated on rerun),
+ *        including outreach/follow-up tracking columns you fill in by hand as you work leads
  *     2) "Grand Montreal" / "Other" tabs that are live FILTER() views over Leads
- *     3) An "Excluded" tab (audit trail: why a posting got filtered out)
- *     4) A "Dashboard" tab with COUNTIF/AVERAGEIFS summary metrics
- *     5) A LeadScore column, recomputed daily so recency decays like request-tracker's priority
+ *     3) A "Follow-Ups Due" tab: a live view of leads whose next-follow-up date has arrived
+ *        and aren't already Won/Not Interested/Lost
+ *     4) An "Excluded" tab (audit trail: why a posting got filtered out)
+ *     5) A "Dashboard" tab with COUNTIF/AVERAGEIFS summary metrics
+ *     6) A LeadScore column, recomputed daily so recency decays like request-tracker's priority
  *
  * HOW TO INSTALL  (one time, ~3 minutes)
  *   1. Go to https://script.google.com  ->  New project
@@ -25,7 +28,11 @@
  *          personal Google account / off the TELUS network -- see HOW-TO-Deploy-Sheet.md)
  *      Copy the Web app URL -> put it in .env as SHEET_WEBAPP_URL.
  *
- * To re-deploy after editing later: Deploy -> Manage deployments -> edit (pencil)
+ * To re-deploy after editing later: Deploy -> Manage deployments -> edit (pencil).
+ * If you're updating an already-deployed sheet to pick up new columns/tabs, run
+ * migrateAddOutreachColumns (or just setup again -- it calls the migration too) before or
+ * after pasting the new code; it's idempotent and won't touch outreach data you've already
+ * filled in. See "Re-deploying after this update" in HOW-TO-Deploy-Sheet.md.
  *************************************************************************/
 
 /******************** CONFIG ********************/
@@ -36,19 +43,29 @@ var CONFIG = {
   DASH: 'Dashboard',
   GRAND_MTL_SHEET: 'Grand Montreal',
   OTHER_SHEET: 'Other',
+  FOLLOWUPS_SHEET: 'Follow-Ups Due',
   GRAND_MTL_VALUE: 'Grand Montreal',   // must match leadgen/data/qc_geo_lookup.csv's region_bucket values exactly
   OTHER_VALUE: 'Other',
 };
 
+var STATUS_OPTIONS = ['New', 'Attempted', 'Contacted', 'Interested', 'Meeting Booked',
+                       'Proposal Sent', 'Won', 'Not Interested', 'Lost'];
+var CLOSED_STATUSES = ['Won', 'Not Interested', 'Lost'];
+var CONTACT_METHOD_OPTIONS = ['Call', 'Email', 'Both'];
+
 /* Column layout (1-indexed) for the Leads tab. Change order here only if you also update
-   buildLeadsSheet()/ingestLeads(). */
+   buildLeadsSheet()/ingestLeads(). Columns 1-24 are the original lead-gen pipeline output;
+   25-30 are outreach tracking, filled in by hand as you work each lead (see
+   OUTREACH_PLAYBOOK.md for the cadence these map to) -- the Python side never writes them. */
 var COL = {
   ID: 1, DEDUPE_KEY: 2, DATE_FIRST_SEEN: 3, DATE_LAST_SEEN: 4, TIMES_SEEN: 5,
   SOURCE: 6, POSTING_ID: 7, POSTING_URL: 8, COMPANY_NAME: 9, NAICS_CODE: 10,
   JOB_TITLE: 11, MUNICIPALITY: 12, REGION_BUCKET: 13, DISTANCE_KM: 14,
   HEADCOUNT_BUCKET: 15, HEADCOUNT_RAW: 16, CONTACT_NAME: 17, CONTACT_TITLE: 18,
   CONTACT_EMAIL: 19, CONTACT_PHONE: 20, CONTACT_SOURCE_TIER: 21, CONTACT_CONFIDENCE: 22,
-  LEAD_SCORE: 23, NOTES: 24
+  LEAD_SCORE: 23, NOTES: 24,
+  STATUS: 25, LAST_CONTACT_DATE: 26, LAST_CONTACT_METHOD: 27, NEXT_FOLLOWUP_DATE: 28,
+  ATTEMPTS: 29, FOLLOWUP_NOTES: 30
 };
 var HEADERS = [
   'ID', 'Dedupe Key', 'Date First Seen', 'Date Last Seen', 'Times Seen',
@@ -56,14 +73,19 @@ var HEADERS = [
   'Job Title', 'Municipality', 'Region', 'Distance (km)',
   'Headcount Bucket', 'Headcount (raw)', 'Contact Name', 'Contact Title',
   'Contact Email', 'Contact Phone', 'Contact Source', 'Contact Confidence',
-  'Lead Score', 'Notes'
+  'Lead Score', 'Notes',
+  'Status', 'Last Contact Date', 'Last Contact Method', 'Next Follow-Up Date',
+  'Attempts', 'Follow-Up Notes'
 ];
 
 var EXCL_COL = { COMPANY_NAME: 1, JOB_TITLE: 2, MUNICIPALITY: 3, TYPE: 4, METHOD: 5, REASON: 6, DATE_LOGGED: 7 };
 var EXCL_HEADERS = ['Company Name', 'Job Title', 'Municipality', 'Type', 'Method', 'Reason', 'Date Logged'];
 
-/******************** WEB APP — JSON ingestion endpoint ********************/
-/* No doGet -- this project has no human-facing intake page, only doPost from the CLI. */
+/******************** WEB APP ********************/
+/* doPost: the CLI's JSON ingestion endpoint (leads/excluded/dropped batches).
+   doGet: a read-only JSON status summary (total leads, counts by Status, how many are
+   currently overdue in Follow-Ups Due) -- for sanity-checking from outside the Sheet with a
+   plain HTTP GET. Neither needs auth beyond however the deployment's "who has access" is set. */
 function doPost(e) {
   var result;
   try {
@@ -74,6 +96,36 @@ function doPost(e) {
   }
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput(JSON.stringify(getStatusSummary()))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getStatusSummary() {
+  var ss = getSpreadsheet();
+  ensureAllSheetsExist(ss);
+  var sheet = ss.getSheetByName(CONFIG.SHEET);
+  var last = sheet.getLastRow();
+  var summary = { totalLeads: 0, byStatus: {}, followUpsDue: 0 };
+  if (last < 2) return summary;
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var data = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  data.forEach(function (row) {
+    summary.totalLeads++;
+    var status = row[COL.STATUS - 1] || 'New';
+    summary.byStatus[status] = (summary.byStatus[status] || 0) + 1;
+
+    var nfu = row[COL.NEXT_FOLLOWUP_DATE - 1];
+    var isClosed = CLOSED_STATUSES.indexOf(status) !== -1;
+    if (!isClosed && nfu instanceof Date) {
+      var d = new Date(nfu); d.setHours(0, 0, 0, 0);
+      if (d <= today) summary.followUpsDue++;
+    }
+  });
+  return summary;
 }
 
 function ingestBatch(leads, excluded, dropped) {
@@ -89,6 +141,9 @@ function ingestBatch(leads, excluded, dropped) {
     var key = lead.dedupe_key || '';
     var existingRow = key ? existingRowByKey[key] : undefined;
     if (existingRow) {
+      // A re-seen posting: only touch the recency/score fields. Outreach-tracking columns
+      // (Status, follow-up dates, notes, etc.) are never overwritten here -- that data is
+      // yours, not the pipeline's.
       sheet.getRange(existingRow, COL.DATE_LAST_SEEN).setValue(now);
       var timesCell = sheet.getRange(existingRow, COL.TIMES_SEEN);
       timesCell.setValue((timesCell.getValue() || 0) + 1);
@@ -123,6 +178,14 @@ function ingestBatch(leads, excluded, dropped) {
     row[COL.CONTACT_CONFIDENCE - 1] = lead.contact_confidence || '';
     row[COL.LEAD_SCORE - 1] = computeLeadScore(lead, 0);
     row[COL.NOTES - 1] = lead.notes || '';
+    // Outreach-tracking defaults -- the Python side has no concept of these; they only ever
+    // get set here at insert time, then updated by hand as you work the lead.
+    row[COL.STATUS - 1] = 'New';
+    row[COL.LAST_CONTACT_DATE - 1] = '';
+    row[COL.LAST_CONTACT_METHOD - 1] = '';
+    row[COL.NEXT_FOLLOWUP_DATE - 1] = '';
+    row[COL.ATTEMPTS - 1] = 0;
+    row[COL.FOLLOWUP_NOTES - 1] = '';
 
     sheet.appendRow(row);
     if (key) existingRowByKey[key] = sheet.getLastRow();
@@ -231,10 +294,11 @@ function sortByScore(sheet) {
   range.setValues(data);
 }
 
-/******************** SETUP — run this ONCE ********************/
+/******************** SETUP — run this ONCE (safe to re-run any time) ********************/
 function setup() {
   var ss = getSpreadsheet();
   ensureAllSheetsExist(ss);
+  migrateAddOutreachColumns();
   installTriggers(ss);
   var url = ss.getUrl();
   console.log('Setup complete.');
@@ -248,6 +312,7 @@ function ensureAllSheetsExist(ss) {
   if (!ss.getSheetByName(CONFIG.EXCLUDED_SHEET)) buildExcludedSheet(ss);
   if (!ss.getSheetByName(CONFIG.GRAND_MTL_SHEET)) buildRegionView(ss, CONFIG.GRAND_MTL_SHEET, CONFIG.GRAND_MTL_VALUE);
   if (!ss.getSheetByName(CONFIG.OTHER_SHEET)) buildRegionView(ss, CONFIG.OTHER_SHEET, CONFIG.OTHER_VALUE);
+  if (!ss.getSheetByName(CONFIG.FOLLOWUPS_SHEET)) buildFollowUpsDueSheet(ss);
   if (!ss.getSheetByName(CONFIG.DASH)) buildDashboard(ss);
 }
 
@@ -258,7 +323,46 @@ function buildLeadsSheet(ss) {
   sheet.setFrozenRows(1);
   sheet.hideColumns(COL.DEDUPE_KEY);   // internal dedupe key, not for human eyes
 
-  var scoreRange = sheet.getRange(2, COL.LEAD_SCORE, sheet.getMaxRows() - 1, 1);
+  applyOutreachValidation(sheet);
+  applyLeadsConditionalFormatting(sheet);
+
+  sheet.setColumnWidth(COL.COMPANY_NAME, 220);
+  sheet.setColumnWidth(COL.JOB_TITLE, 180);
+  sheet.setColumnWidth(COL.CONTACT_NAME, 160);
+  sheet.setColumnWidth(COL.NOTES, 240);
+  sheet.setColumnWidth(COL.FOLLOWUP_NOTES, 240);
+}
+
+/* Data-validation dropdowns for Status / Last Contact Method. Safe to call repeatedly --
+   re-applying the same rule to the same range is a no-op in effect. */
+function applyOutreachValidation(sheet) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows < 2) return;
+  var statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(STATUS_OPTIONS, true).setAllowInvalid(true).build();
+  sheet.getRange(2, COL.STATUS, maxRows - 1, 1).setDataValidation(statusRule);
+
+  var methodRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(CONTACT_METHOD_OPTIONS, true).setAllowInvalid(true).build();
+  sheet.getRange(2, COL.LAST_CONTACT_METHOD, maxRows - 1, 1).setDataValidation(methodRule);
+}
+
+/* Single source of truth for ALL of the Leads tab's conditional formatting -- rebuilds the
+   whole rule set from scratch every time (rather than concatenating) so re-running this via
+   migrateAddOutreachColumns() never piles up duplicate rules. */
+function applyLeadsConditionalFormatting(sheet) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows < 2) return;
+  var scoreRange = sheet.getRange(2, COL.LEAD_SCORE, maxRows - 1, 1);
+  var confRange = sheet.getRange(2, COL.CONTACT_CONFIDENCE, maxRows - 1, 1);
+  var fullRowRange = sheet.getRange(2, 1, maxRows - 1, HEADERS.length);
+
+  var statusCol = columnToLetter(COL.STATUS);
+  var nfuCol = columnToLetter(COL.NEXT_FOLLOWUP_DATE);
+  var overdueFormula = '=AND($' + nfuCol + '2<>"", $' + nfuCol + '2<TODAY(), NOT(OR(' +
+    CLOSED_STATUSES.map(function (s) { return '$' + statusCol + '2="' + s + '"'; }).join(',') +
+    ')))';
+
   sheet.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenNumberGreaterThanOrEqualTo(8).setBackground('#D9EAD3').setRanges([scoreRange]).build(),
@@ -266,20 +370,15 @@ function buildLeadsSheet(ss) {
       .whenNumberBetween(4, 7.99).setBackground('#FCE5CD').setRanges([scoreRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenNumberLessThan(4).setBackground('#F4CCCC').setRanges([scoreRange]).build(),
-  ]);
-
-  var confRange = sheet.getRange(2, COL.CONTACT_CONFIDENCE, sheet.getMaxRows() - 1, 1);
-  sheet.setConditionalFormatRules(sheet.getConditionalFormatRules().concat([
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Low').setBackground('#F4CCCC').setRanges([confRange]).build(),
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('High').setBackground('#D9EAD3').setRanges([confRange]).build(),
-  ]));
-
-  sheet.setColumnWidth(COL.COMPANY_NAME, 220);
-  sheet.setColumnWidth(COL.JOB_TITLE, 180);
-  sheet.setColumnWidth(COL.CONTACT_NAME, 160);
-  sheet.setColumnWidth(COL.NOTES, 240);
+    // Overdue follow-up: highlights the whole row so it's obvious while scrolling, not just
+    // the one date cell.
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied(overdueFormula).setBackground('#F4CCCC').setRanges([fullRowRange]).build(),
+  ]);
 }
 
 function buildExcludedSheet(ss) {
@@ -297,6 +396,32 @@ function buildRegionView(ss, sheetName, regionValue) {
   var formula = '=IFERROR(FILTER(' + CONFIG.SHEET + '!A2:' + lastColLetter + ', ' +
     CONFIG.SHEET + '!' + columnToLetter(COL.REGION_BUCKET) + '2:' + columnToLetter(COL.REGION_BUCKET) +
     '="' + regionValue + '"), "(no leads yet)")';
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS])
+    .setFontWeight('bold').setFontColor('#ffffff').setBackground('#4B286D');
+  sheet.getRange(2, 1).setFormula(formula);
+  sheet.setFrozenRows(1);
+}
+
+/* Another live-formula view: leads whose Next Follow-Up Date has arrived (today or earlier)
+   and aren't already closed out (Won/Not Interested/Lost), soonest-due first. This is the
+   "who do I contact today" tab -- see OUTREACH_PLAYBOOK.md for the cadence it's meant to
+   support. */
+function buildFollowUpsDueSheet(ss) {
+  var sheet = ss.insertSheet(CONFIG.FOLLOWUPS_SHEET);
+  var lastColLetter = columnToLetter(HEADERS.length);
+  var L = CONFIG.SHEET;
+  var statusCol = columnToLetter(COL.STATUS);
+  var nfuCol = columnToLetter(COL.NEXT_FOLLOWUP_DATE);
+
+  var closedConds = CLOSED_STATUSES.map(function (s) {
+    return '(' + L + '!' + statusCol + '2:' + statusCol + '<>"' + s + '")';
+  }).join('*');
+
+  var formula = '=IFERROR(SORT(FILTER(' + L + '!A2:' + lastColLetter + ', ' +
+    '(' + L + '!' + nfuCol + '2:' + nfuCol + '<>"")*' +
+    '(' + L + '!' + nfuCol + '2:' + nfuCol + '<=TODAY())*' +
+    closedConds + '), ' + COL.NEXT_FOLLOWUP_DATE + ', TRUE), "(none due)")';
+
   sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS])
     .setFontWeight('bold').setFontColor('#ffffff').setBackground('#4B286D');
   sheet.getRange(2, 1).setFormula(formula);
@@ -336,6 +461,8 @@ function buildDashboard(ss) {
     ['Avg Lead Score',             '=IFERROR(ROUND(AVERAGE(' + L + 'W2:W),1),0)'],
     ['Top Lead Score',             '=IFERROR(MAX(' + L + 'W2:W),0)'],
     ['', ''],
+    ['Follow-ups due today or earlier', '=COUNTA(\'' + CONFIG.FOLLOWUPS_SHEET + '\'!A2:A)-COUNTIF(\'' + CONFIG.FOLLOWUPS_SHEET + '\'!A2:A,"(none due)")'],
+    ['', ''],
     ['Total excluded (sector)',    '=COUNTIF(' + X + 'D2:D,"Sector")'],
     ['Total dropped (out of radius)', '=COUNTIF(' + X + 'D2:D,"Geo")'],
   ];
@@ -352,6 +479,52 @@ function installTriggers(ss) {
     if (ours[t.getHandlerFunction()]) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('refreshLeadScores').timeBased().everyDays(1).atHour(6).create();
+}
+
+/******************** MIGRATION — outreach-tracking columns ********************
+ * Adds Status/Last Contact Date/Last Contact Method/Next Follow-Up Date/Attempts/
+ * Follow-Up Notes to a Leads tab that predates this feature, backfills sensible defaults
+ * for pre-existing rows (Status="New", Attempts=0 -- ONLY where those cells are still blank,
+ * so it never clobbers outreach data you've already entered), (re)applies the dropdown
+ * validation + overdue conditional formatting, and creates the Follow-Ups Due tab if it's
+ * missing. Idempotent -- safe to run as many times as you want, including via setup(). */
+function migrateAddOutreachColumns() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.SHEET);
+  if (!sheet) { ensureAllSheetsExist(ss); return; }
+
+  var currentHeaderRow = sheet.getRange(1, 1, 1, Math.max(sheet.getMaxColumns(), HEADERS.length)).getValues()[0];
+  var hasStatusHeader = currentHeaderRow.indexOf('Status') !== -1;
+
+  if (!hasStatusHeader) {
+    var needed = HEADERS.length - sheet.getMaxColumns();
+    if (needed > 0) sheet.insertColumnsAfter(sheet.getMaxColumns(), needed);
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS])
+      .setFontWeight('bold').setFontColor('#ffffff').setBackground('#4B286D');
+  }
+
+  applyOutreachValidation(sheet);
+  applyLeadsConditionalFormatting(sheet);
+
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var n = last - 1;
+    var statusRange = sheet.getRange(2, COL.STATUS, n, 1);
+    var attemptsRange = sheet.getRange(2, COL.ATTEMPTS, n, 1);
+    var statusVals = statusRange.getValues();
+    var attemptsVals = attemptsRange.getValues();
+    var changedStatus = false, changedAttempts = false;
+    for (var i = 0; i < n; i++) {
+      if (!statusVals[i][0]) { statusVals[i][0] = 'New'; changedStatus = true; }
+      if (attemptsVals[i][0] === '' || attemptsVals[i][0] === null) { attemptsVals[i][0] = 0; changedAttempts = true; }
+    }
+    if (changedStatus) statusRange.setValues(statusVals);
+    if (changedAttempts) attemptsRange.setValues(attemptsVals);
+  }
+
+  if (!ss.getSheetByName(CONFIG.FOLLOWUPS_SHEET)) buildFollowUpsDueSheet(ss);
+
+  console.log('Outreach-tracking migration complete.');
 }
 
 /******************** HELPERS ********************/

@@ -34,6 +34,22 @@ tested instead of re-derived by an LLM every run:
   still useful if you'd rather browse a job board yourself and paste results in than have an
   agent search the open web for you.
 
+## Outreach / follow-up tracking
+
+The `Leads` tab also carries six outreach-tracking columns — `Status`, `Last Contact Date`,
+`Last Contact Method`, `Next Follow-Up Date`, `Attempts`, `Follow-Up Notes` — that the pipeline
+never writes past their initial default (`Status="New"`, `Attempts=0`, the rest blank) when a
+lead is first ingested. **Working leads day to day is manual**: after each call or email, update
+those fields by hand in the Sheet. `Status` and `Last Contact Method` are dropdowns; see
+`OUTREACH_PLAYBOOK.md` for the actual call script, email sequence, and the cadence
+(day 0 call → day 3-4 → day 7 → day 10-14 final touch) these fields are meant to track.
+
+A `Follow-Ups Due` tab is a live view of every lead whose `Next Follow-Up Date` has arrived and
+isn't already `Won`/`Not Interested`/`Lost`, soonest-due first — that's the "who do I contact
+today" list. Overdue rows are also highlighted red directly on `Leads`. If your Sheet predates
+this feature, see "Updating an already-deployed Sheet to add outreach/follow-up tracking" in
+`HOW-TO-Deploy-Sheet.md`.
+
 ## Usage
 
 ```
